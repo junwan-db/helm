@@ -25,6 +25,7 @@ class HuggingFaceTokenizers:
             if revision is not None:
                 tokenizer_kwargs["revision"] = revision
             try:
+                hlog(f"===Loading tokenizer from: {hf_tokenizer_name}")
                 # From the Hugging Face documentation, "local_files_only(defaults to False) —
                 # Whether or not to only look at local files".
                 # Running `local_files_only=False` requires an internet connection even if the files are downloaded
@@ -53,8 +54,12 @@ class HuggingFaceTokenizers:
                 revision: Optional[str] = None
                 model_config = get_huggingface_model_config(tokenizer_name)
                 if model_config:
-                    hf_tokenizer_name = model_config.model_id
-                    revision = model_config.revision
+                    if model_config.local_model_path:
+                        HuggingFaceTokenizers.tokenizers[tokenizer_name] = load_tokenizer(model_config.local_model_path)
+                        return HuggingFaceTokenizers.tokenizers[tokenizer_name]
+                    else:
+                        hf_tokenizer_name = model_config.model_id
+                        revision = model_config.revision
                 elif tokenizer_name == "huggingface/gpt2":
                     hf_tokenizer_name = "gpt2"
                 elif tokenizer_name == "EleutherAI/gpt-j-6B":

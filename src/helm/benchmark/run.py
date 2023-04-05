@@ -33,7 +33,7 @@ def run_entries_to_run_specs(
         # Filter by priority
         if priority is not None and entry.priority > priority:
             continue
-
+        hlog(f"Entry description: entry.description {entry.description}")
         for run_spec in construct_run_specs(parse_object_spec(entry.description)):
             # Filter by models
             if models_to_run and run_spec.adapter_spec.model not in models_to_run:
@@ -225,8 +225,9 @@ def main():
     args = parser.parse_args()
     validate_args(args)
 
-    for huggingface_model_name in args.enable_huggingface_models:
-        register_huggingface_model_config(huggingface_model_name)
+    hlog(f"===enable-huggingface-models: {args.enable_huggingface_models}")
+    for huggingface_model in args.enable_huggingface_models:
+        register_huggingface_model_config(*huggingface_model.split(":", 1))
 
     run_entries: List[RunEntry] = []
     if args.conf_paths:

@@ -28,6 +28,13 @@ class HuggingFaceModelConfig:
 
     If None, use the default revision."""
 
+    local_model_path: Optional[str]
+    """Return path of local model
+
+    Examples:
+    - '/Users/xx/.cache/huggingface/hub/models--gpt2/snapshots/e7xxxxx'
+    - '/dbfs/xx/xxx'"""
+    
     @property
     def model_id(self) -> str:
         """Return the model ID.
@@ -38,6 +45,15 @@ class HuggingFaceModelConfig:
         if self.namespace:
             return f"{self.namespace}/{self.model_name}"
         return self.model_name
+
+    # @property
+    # def local_model_path(self) -> str:
+    #     """Return path of local model
+
+    #     Examples:
+    #     - '/Users/xx/.cache/huggingface/hub/models--gpt2/snapshots/e7xxxxx'
+    #     - '/dbfs/xx/xxx'"""
+        
 
     def __str__(self) -> str:
         """Return the full model name used by HELM in the format "[namespace/]model_name[@revision]".
@@ -51,10 +67,12 @@ class HuggingFaceModelConfig:
             result = f"{self.namespace}/{result}"
         if self.revision:
             result = f"{result}@{self.revision}"
+        # if self.local_model_path:
+        #     result = f"{result}:{self.local_model_path}"
         return result
 
     @staticmethod
-    def from_string(raw: str) -> "HuggingFaceModelConfig":
+    def from_string(raw_name: str, local_model_path: str = None) -> "HuggingFaceModelConfig":
         """Parses a string in the format "[namespace/]model_name[@revision]" to a HuggingFaceModelConfig.
 
         Examples:
@@ -62,24 +80,30 @@ class HuggingFaceModelConfig:
         - 'stanford-crfm/BioMedLM'
         - 'stanford-crfm/BioMedLM@main'"""
         pattern = r"((?P<namespace>[^/@]+)/)?(?P<model_name>[^/@]+)(@(?P<revision>[^/@]+))?"
-        match = re.fullmatch(pattern, raw)
+        match = re.fullmatch(pattern, raw_name)
         if not match:
-            raise ValueError(f"Could not parse model name: '{raw}'; Expected format: [namespace/]model_name[@revision]")
+            raise ValueError(f"Could not parse model name: '{raw_name}'; Expected format: [namespace/]model_name[@revision]")
         model_name = match.group("model_name")
         assert model_name
         return HuggingFaceModelConfig(
-            namespace=match.group("namespace"), model_name=model_name, revision=match.group("revision")
+            namespace=match.group("namespace"), 
+            model_name=model_name, 
+            revision=match.group("revision"), 
+            local_model_path = local_model_path,
         )
 
 
 _huggingface_model_registry: Dict[str, HuggingFaceModelConfig] = {}
 
 
-def register_huggingface_model_config(model_name: str) -> HuggingFaceModelConfig:
-    """Register a AutoModelForCausalLM model from Hugging Face Model Hub for later use.
+def register_huggingface_model_config(model_name: str, local_model_path: str = None) -> HuggingFaceModelConfig:
+    """Register a AutoModelForCausalLM model from Hugging Face Model Hub for later use. 
+    Will load the model from local path if local_model_path is specified
 
-    model_name format: namespace/model_name[@revision]"""
-    config = HuggingFaceModelConfig.from_string(model_name)
+    model_name format: namespace/model_name[@revision]
+    local_model_path: /folder/model_path
+    """
+    config = HuggingFaceModelConfig.from_string(model_name, local_model_path)
     if config.model_id in _huggingface_model_registry:
         raise ValueError(f"A Hugging Face model is already registered for model_id {model_name}")
     _huggingface_model_registry[model_name] = config
