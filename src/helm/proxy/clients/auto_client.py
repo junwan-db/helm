@@ -1,4 +1,6 @@
 import os
+import threading
+
 from dataclasses import replace
 from typing import Dict, Optional
 
@@ -41,6 +43,7 @@ class AutoClient(Client):
         self.credentials = credentials
         self.cache_path = cache_path
         self.mongo_uri = mongo_uri
+        self.lock = threading.Lock()
         self.clients: Dict[str, Client] = {}
         self.tokenizer_clients: Dict[str, Client] = {}
         # self.critique_client is lazily instantiated by get_critique_client()
@@ -134,8 +137,11 @@ class AutoClient(Client):
         @retry_request
         def make_request_with_retry(client: Client, request: Request) -> RequestResult:
             return client.make_request(request)
-
+        
+        # multi-thread safe to load client and models
+        self.lock.acquire()
         client: Client = self._get_client(request.model)
+        self.lock.release()
 
         try:
             return make_request_with_retry(client=client, request=request)
@@ -194,9 +200,11 @@ class AutoClient(Client):
         @retry_request
         def tokenize_with_retry(client: Client, request: TokenizationRequest) -> TokenizationRequestResult:
             return client.tokenize(request)
-
+        
+        self.lock.acquire()
         client: Client = self._get_tokenizer_client(request.tokenizer)
-
+        self.lock.release()
+        
         try:
             return tokenize_with_retry(client=client, request=request)
         except RetryError as e:

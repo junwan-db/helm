@@ -1,5 +1,6 @@
 from copy import deepcopy
 import torch
+import threading
 from dataclasses import asdict
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from typing import Any, Dict, List
@@ -21,12 +22,14 @@ from helm.proxy.clients.huggingface_model_registry import HuggingFaceModelConfig
 
 class HuggingFaceServer:
     def __init__(self, model_config: HuggingFaceModelConfig):
+        model_kwargs = {}
         if torch.cuda.is_available():
             hlog("CUDA is available, initializing with a GPU...")
-            self.device: str = "cuda:0"
+            self.device: str = "cuda"
+            model_kwargs["device_map"] = "auto"
         else:
             self.device = "cpu"
-        model_kwargs = {}
+        
         if model_config.revision:
             model_kwargs["revision"] = model_config.revision
         
@@ -34,14 +37,16 @@ class HuggingFaceServer:
         if model_config.local_model_path:
             loading_path = model_config.local_model_path
         
-        with htrack_block(f"Loading Hugging Face model for {loading_path}"):
+        with htrack_block(f"Loading Hugging Face tokenizer model for config {loading_path}"):
+            self.tokenizer = AutoTokenizer.from_pretrained(loading_path, padding_side="left")
+
+        with htrack_block(f"Loading Hugging Face model for {loading_path} with args: {model_kwargs}"):
             self.model = AutoModelForCausalLM.from_pretrained(
                 loading_path, trust_remote_code=True, **model_kwargs
-            ).to(self.device)
-        with htrack_block(f"Loading Hugging Face tokenizer model for config {model_config}"):
-            self.tokenizer = AutoTokenizer.from_pretrained(loading_path, **model_kwargs)
-
+            )
+        
     def serve_request(self, raw_request: Dict[str, Any]):
+        print(f"==server request: {raw_request}==")
         encoded_input = self.tokenizer(raw_request["prompt"], return_tensors="pt").to(self.device)
         raw_request = deepcopy(raw_request)
         raw_request["do_sample"] = True
@@ -64,11 +69,12 @@ class HuggingFaceServer:
             for key in raw_request
             if key not in ["engine", "prompt", "echo_prompt", "stop_sequences"]
         }
-
+        
         # Use HuggingFace's `generate` method.
         output = self.model.generate(**encoded_input, **relevant_raw_request)
         sequences = output.sequences
         scores = output.scores
+
 
         # Compute logprobs for each completed sequence.
         all_logprobs_of_chosen_tokens = []
@@ -115,6 +121,7 @@ class HuggingFaceServer:
                 }
             )
 
+        print(f"==completions: {completions}, input_len: {len(encoded_input.input_ids[0])}")
         return {"completions": completions, "input_length": len(encoded_input.input_ids[0])}
 
 
@@ -122,6 +129,7 @@ class HuggingFaceClient(Client):
     def __init__(self, cache_config: CacheConfig):
         self.cache = Cache(cache_config)
         self.model_server_instances: Dict[str, HuggingFaceServer] = {}
+        self.lock = threading.Lock()
 
     def get_model_server_instance(self, model) -> HuggingFaceServer:
         if model not in self.model_server_instances:
@@ -166,7 +174,9 @@ class HuggingFaceClient(Client):
 
         # Get cached model server instance if possible (to save on model and tokenizer
         # loading times).
+        self.lock.acquire()
         model_server_instance: HuggingFaceServer = self.get_model_server_instance(request.model)
+        self.lock.release()
 
         try:
 
