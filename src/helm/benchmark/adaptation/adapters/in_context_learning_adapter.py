@@ -48,13 +48,14 @@ class InContextLearningAdapter(Adapter, ABC):
         all_request_states: List[RequestState] = []
         prompt: Prompt
 
+        print(f"===numer of train trails:: {self.adapter_spec.num_train_trials}")
         for train_trial_index in range(self.adapter_spec.num_train_trials):
             with htrack_block(f"Adapting with train_trial_index={train_trial_index}"):
                 all_request_states.extend(
                     self._adapt_trial_index(all_train_instances, train_trial_index, eval_instances, parallelism)
                 )
 
-        hlog(f"{len(all_request_states)} requests")
+        hlog(f"Final number of: {len(all_request_states)} requests")
         return ScenarioState(self.adapter_spec, all_request_states)
 
     def _adapt_trial_index(
@@ -68,7 +69,7 @@ class InContextLearningAdapter(Adapter, ABC):
         self.train_instances: List[Instance] = self.sample_examples(
             all_train_instances, seed=train_trial_index, sample_train=self.adapter_spec.sample_train
         )
-        hlog(f"Sampled {len(self.train_instances)} examples for trial #{self.train_trial_index}.")
+        hlog(f"Sampled {len(self.train_instances)} training examples for trial #{self.train_trial_index}.")
 
         # Generate request_states
         results: List[List[RequestState]] = parallel_map(

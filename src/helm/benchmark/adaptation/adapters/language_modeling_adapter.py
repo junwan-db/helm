@@ -79,7 +79,7 @@ class LanguageModelingAdapter(Adapter):
             model=self.adapter_spec.model,
             prompt=prompt_text,
             num_completions=1,
-            temperature=0,
+            temperature=self.adapter_spec.temperature,
             max_tokens=self.adapter_spec.max_tokens,  # usually this is zero
             stop_sequences=self.adapter_spec.stop_sequences,
             echo_prompt=True,

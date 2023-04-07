@@ -34,7 +34,7 @@ class MultipleChoiceSeparateAdapter(InContextLearningAdapter):
             model=self.adapter_spec.model,
             prompt=prompt.text,
             num_completions=1,
-            temperature=0,
+            temperature=self.adapter_spec.temperature,
             max_tokens=0,
             stop_sequences=[],
             echo_prompt=True,

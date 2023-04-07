@@ -1,5 +1,6 @@
 import itertools
 from typing import Any, Callable, List, Dict, Optional, Set
+from dataclasses import replace
 
 from helm.common.hierarchical_logger import hlog, htrack
 from helm.common.object_spec import ObjectSpec
@@ -1952,8 +1953,22 @@ def construct_run_specs(spec: ObjectSpec) -> List[RunSpec]:
     expanders = [RUN_EXPANDERS[key](value) for key, value in args.items() if key in RUN_EXPANDERS]  # type: ignore
     args = dict((key, value) for key, value in args.items() if key not in RUN_EXPANDERS)
 
-    # Get the canonical run specs
-    run_specs = [CANONICAL_RUN_SPEC_FUNCS[name](**args)]
+    # temperature greatly impact the inference speed when input is huge
+    # make it as default settings for all scenarios
+    temperature = args.get('temperature')
+
+    # print(f"==temperature is: {temperature} for spec name: {name}")
+    if temperature is None:
+        # Get the canonical run specs
+        run_specs = [CANONICAL_RUN_SPEC_FUNCS[name](**args)]
+    else:
+        del args['temperature']
+        run_spec = CANONICAL_RUN_SPEC_FUNCS[name](**args)
+        adapter_spec = replace(
+            run_spec.adapter_spec,
+            temperature=temperature ,
+        )
+        run_specs = [replace(run_spec, adapter_spec= adapter_spec)]
 
     # Apply expanders
     for expander in expanders:
