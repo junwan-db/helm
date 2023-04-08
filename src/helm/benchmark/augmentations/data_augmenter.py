@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass, field
 from typing import List
 
@@ -20,16 +21,22 @@ class Processor:
 
     def process(self, instance: Instance) -> List[Instance]:
         result: List[Instance] = []
-        if self.include_original:
-            #  we want to include the original even when the perturbation does not change the input
-            result.append(instance)
-
         for perturbation in self.perturbations:
             for i in range(self.seeds_per_instance):
                 perturbed_instance: Instance = perturbation.apply(instance, seed=None if i == 0 else i)
                 if self.skip_unchanged and perturbed_instance.input == instance.input:
                     continue
                 result.append(perturbed_instance)
+        
+        # TODO: remove
+        # To avoid too many perturbations, just pick up 2 for one instance at most
+        if (len(result) > 2):
+            print(f"== reduce perturbation numbers from {len(result)} to 2")
+            result = random.sample(result, 2)
+
+        if self.include_original:
+            #  we want to include the original even when the perturbation does not change the input
+            result.insert(0, instance)
         return result
 
 
@@ -64,6 +71,7 @@ class DataAugmenter:
             instances,
             parallelism=parallelism,
         )
+        
         output_instances = [instance for result in results for instance in result]
 
         hlog(f"{len(instances)} instances augmented to {len(output_instances)} instances")

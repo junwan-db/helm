@@ -23,6 +23,7 @@ from .metrics.metric_name import MetricName
 from .metrics.metric_service import MetricService
 from .metrics.metric import Metric, MetricSpec, MetricResult, PerInstanceStats, create_metric, Stat
 from .metrics.tokens_metric import TokensMetric
+from .metrics.toxicity_metrics import ToxicityMetric
 from .window_services.tokenizer_service import TokenizerService
 
 
@@ -137,6 +138,8 @@ class Runner:
         # Fetch and initialize the Adapter based on the `AdapterSpec`.
         adapter: Adapter = AdapterFactory.get_adapter(run_spec.adapter_spec, self.tokenizer_service)
 
+        # print(f"==temperature in run one is: {adapter.adapter_spec.temperature} for spec name: {run_spec.name}")
+
         instances: List[Instance]
         if not self.skip_instances:
             # Create the instances of the scenario
@@ -156,9 +159,11 @@ class Runner:
         else:
             instances = []
 
+        hlog(f"== get {len(instances)} instances from spec: {run_spec.name} ")
         # Adapt (convert to requests)
         scenario_state: ScenarioState = adapter.adapt(instances, self.executor.execution_spec.parallelism)
 
+        # print(f"==temperature before execute is: {scenario_state.request_states[0].request} for spec name: {run_spec.name}")
         # Execute (fill up results)
         scenario_state = self.executor.execute(scenario_state)
 
@@ -173,6 +178,10 @@ class Runner:
         with htrack_block(f"{len(metrics)} metrics"):
             for metric in metrics:
                 with htrack_block(metric):
+                    # TODO: remove it
+                    # if isinstance(metric, ToxicityMetric):
+                    #     print(f"==can not evaluate toxic as google auth issue")
+                    #     continue
                     metric_result: MetricResult = metric.evaluate(
                         scenario_state,
                         self.metric_service,

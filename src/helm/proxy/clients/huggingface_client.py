@@ -46,7 +46,7 @@ class HuggingFaceServer:
             )
         
     def serve_request(self, raw_request: Dict[str, Any]):
-        print(f"==server request: {raw_request}==")
+        # print(f"==server request: {raw_request}==")
         encoded_input = self.tokenizer(raw_request["prompt"], return_tensors="pt").to(self.device)
         raw_request = deepcopy(raw_request)
         raw_request["do_sample"] = True
@@ -69,13 +69,14 @@ class HuggingFaceServer:
             for key in raw_request
             if key not in ["engine", "prompt", "echo_prompt", "stop_sequences"]
         }
-        
+        print (f"== prompt: ... {raw_request['prompt'][-1000:]}")
+        print(f"==request args: {relevant_raw_request}==")
         # Use HuggingFace's `generate` method.
         output = self.model.generate(**encoded_input, **relevant_raw_request)
         sequences = output.sequences
         scores = output.scores
 
-
+        print(f"==Model responsed : {len(sequences)} sequences==")
         # Compute logprobs for each completed sequence.
         all_logprobs_of_chosen_tokens = []
         all_top_logprobs_dicts = []
@@ -121,7 +122,9 @@ class HuggingFaceServer:
                 }
             )
 
-        print(f"==completions: {completions}, input_len: {len(encoded_input.input_ids[0])}")
+        # print(f"==completions: {completions}, input_len: {len(encoded_input.input_ids[0])}")
+        if len(completions) > 0:
+            print(f"==completions: {completions[0]['text']}")
         return {"completions": completions, "input_length": len(encoded_input.input_ids[0])}
 
 

@@ -38,7 +38,8 @@ def run_entries_to_run_specs(
             # Filter by models
             if models_to_run and run_spec.adapter_spec.model not in models_to_run:
                 continue
-
+            
+            # print(f"==groups_to_run: {groups_to_run}, run_spec groups: {run_spec.groups}")
             # Filter by groups
             if groups_to_run and not any(group in groups_to_run for group in run_spec.groups):
                 continue
@@ -250,6 +251,9 @@ def main():
     if len(run_specs) == 0:
         hlog("There were no RunSpecs or they got filtered out.")
         return
+
+    ## TODO: remove
+    args.num_threads = 1
 
     auth: Authentication = Authentication("") if args.skip_instances or args.local else create_authentication(args)
     run_benchmarking(
