@@ -33,8 +33,21 @@ def run_entries_to_run_specs(
         # Filter by priority
         if priority is not None and entry.priority > priority:
             continue
+
         hlog(f"Entry description: entry.description {entry.description}")
-        for run_spec in construct_run_specs(parse_object_spec(entry.description)):
+        spec = parse_object_spec(entry.description)
+        spec_list : List[RunSpec] = []
+        
+        if spec.args.get('model').lower() == "[models-to-run]":
+            if models_to_run is None or len(models_to_run) == 0:
+                raise ValueError(f"Need specify model in entry description or models_to_run. No model for descripton: {entry.description}")
+            for m in models_to_run:
+                spec.args['model'] = m
+                spec_list.extend(construct_run_specs(spec))
+        else:
+            spec_list.extend(construct_run_specs(spec))
+        
+        for run_spec in spec_list:
             # Filter by models
             if models_to_run and run_spec.adapter_spec.model not in models_to_run:
                 continue
@@ -224,6 +237,8 @@ def main():
     )
     add_run_args(parser)
     args = parser.parse_args()
+    hlog(f"==running args: {args}")
+
     validate_args(args)
 
     hlog(f"===enable-huggingface-models: {args.enable_huggingface_models}")
