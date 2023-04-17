@@ -30,9 +30,9 @@ class Processor:
         
         # TODO: remove
         # To avoid too many perturbations, just pick up 2 for one instance at most
-        if (len(result) > 2):
-            print(f"== reduce perturbation numbers from {len(result)} to 2")
-            result = random.sample(result, 2)
+        if (len(result) > 1):
+            print(f"== reduce perturbation numbers from {len(result)} to 1")
+            result = random.sample(result, 1)
 
         if self.include_original:
             #  we want to include the original even when the perturbation does not change the input

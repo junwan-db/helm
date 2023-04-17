@@ -106,7 +106,7 @@ class Runner:
         failed_run_specs: List[RunSpec] = []
         for run_spec in tqdm(run_specs, disable=None):
             try:
-                with htrack_block(f"Running {run_spec.name}"):
+                with htrack_block(f"Start running spec: {run_spec.name}"):
                     self.run_one(run_spec)
             except Exception as e:
                 if self.exit_on_error:
@@ -179,9 +179,9 @@ class Runner:
             for metric in metrics:
                 with htrack_block(metric):
                     # TODO: remove it
-                    # if isinstance(metric, ToxicityMetric):
-                    #     print(f"==can not evaluate toxic as google auth issue")
-                    #     continue
+                    if isinstance(metric, ToxicityMetric):
+                        print(f"==can not evaluate toxic as google auth issue")
+                        continue
                     metric_result: MetricResult = metric.evaluate(
                         scenario_state,
                         self.metric_service,
